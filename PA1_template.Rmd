@@ -1,25 +1,239 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
+title: "R Notebook"
+output:
   html_document:
-    keep_md: true
+    df_print: paged
+  pdf_document: default
 ---
+In this document, personal movement data will be analysed in exploratory way.
+The data is about taken steps in 61 days.
+
+### PREPROCESSING THE DATA
+
+Let's unzip our dataset.
+
+```{r}
+unzip("./activity.zip", exdir = getwd())
+```
+
+This is a comma seperated file. So we create our dataframe and deploy it in the variable data. 
+```{r}
+curr_locale <- Sys.getlocale("LC_TIME")
+Sys.setlocale("LC_TIME","en_US.UTF-8")
+Sys.setlocale("LC_TIME",curr_locale)
+dev_null <- Sys.setlocale("LC_TIME", "english")
+data <- read.csv('./activity.csv', sep = ",")
+```
+
+Let's have a look of the first observations of the data. 
+```{r}
+head(data)
+```
+In the dataset there is a column named steps which we are interested mostly. It seems there are NA's in our data. And there is a date column and interval column. So our dataset is kind of a timeseries dataset. Let's have a look of structure of the data.  
+
+```{r}
+str(data)
+```
+Date is deployed as character and others are integers. And dimension of our data:
+```{r}
+dim(data)
+```
+We know we have NA values, and how many values are NA?
+```{r}
+colSums(is.na(data))
+```
+Son only steps column has NAs.
+What about the ratio of NA values?
+```{r}
+sum(is.na(data$steps))/length(data$steps)
+```
+Now let's transform our date column from char to "YYMMDD" date format and create a new column as factor that shows which weekday is the date.
+So we will be able to have opinions of subject's behaviour in weekdays.  
+```{r}
+data$date <- as.Date(data$date)
+
+data$weekday <- as.factor(weekdays(data$date))
+
+summary(data)
+```
+### PLOTTING THE DATA
+Now we have a better form of data and let's take a look in which day our subjects have more steps?
+First we make groups to see steps taken each day.
+```{r}
+library(dplyr)
+steps_by_days <- aggregate(data$steps, by=list(date = data$date), FUN=sum, na.rm=TRUE)
+names(steps_by_days) <- c("Date","Total_Steps")
+```
+Now we have a group of dates.
+Let's take a look at the plot of steps taken in days. 
+
+```{r}
+library(ggplot2)
+
+g <- ggplot(steps_by_days,aes(Date,Total_Steps))
+g + geom_col(aes(colour=Date))  +scale_x_date(date_breaks = "5 days", date_labels = "%d.%m")
+```
+It looks like we have maximum steps number in date 23.11. And probably because of NA values we have zero bars.
+Let's find average value of steps taken in days in same way of grouping.
+```{r}
+mean_by_days <- aggregate(data$steps, by=list(weekday = data$date), FUN = mean, na.rm=TRUE)
+
+```
+
+```{r}
+names(mean_by_days) <- c("Date","Mean")
+```
+
+```{r}
+g <- ggplot(mean_by_days,aes(Date, Mean))
+g + geom_col(aes(colour=Date))  +scale_x_date(date_breaks = "5 days", date_labels = "%d.%m")
+```
+And the median of steps in each days:
+```{r}
+tapply(data$steps, data$date, median)
+```
+Because of NA's our median is meaningless.
+Let's take a look of 5 minute intervals:
+```{r}
+five_min_intervals <- filter(data,interval == 5)
+```
+
+```{r}
+five_min_intervals
+```
+These NA's are problem. Average values of steps in 5 minute intervals. 
+```{r}
+average_of_five_min_int <- aggregate(five_min_intervals$steps, by = list(average = five_min_intervals$steps), FUN = mean, na.rm=TRUE)
+```
+
+```{r}
+average_of_five_min_int
+```
+
+Average of five minute intervals:
+```{r}
+mean(five_min_intervals$steps, na.rm=TRUE)
+```
+Maximum steps of five minute intervals:
+```{r}
+max(five_min_intervals$steps,na.rm = TRUE)
+```
 
 
-## Loading and preprocessing the data
+
+### FILLING NA'S
 
 
 
-## What is mean total number of steps taken per day?
+
+Let's take a look at steps taken weekdays:
+
+```{r}
+steps_by_weekdays <- aggregate(data$steps, by=list(weekday = data$weekday), FUN=sum, na.rm=TRUE)
+
+```
+```{r}
+names(steps_by_weekdays)= c("weekday","total_steps")
+```
+
+```{r}
+steps_by_weekdays[c('weekday','total_steps')]
+```
+We see wednesday is the most steps taken day. 
+
+```{r}
+g <- ggplot(steps_by_weekdays,aes(weekday, total_steps))
+g + geom_col(aes(colour=weekday)) 
+
+```
+Let's find the mean of steps taken each weekday. Let's find how many days we have observed the taken steps
+
+```{r}
+length(unique(data$date))
+```
+Now let's redefine our grouped data and see our average of steps in weekdays: 
+```{r}
+average_weekdays <- steps_by_weekdays
+average_weekdays$total_steps <- average_weekdays$total_steps/61
+average_weekdays
+```
+And how many intervals do we have in a day?
+```{r}
+length(unique(data$interval))
+```
+We can subset each interval and find mean of the steps take by intervals but we don't have much information about intervals. We have too much NA for 5 minute intervals, so mean of them won't be meaningful. 
+That's why we can fill NA's with each weekday's average step number by the interval. Let's code what I meant:
+
+```{r}
+average_weekdays$total_steps <- average_weekdays$total_steps / 288
+average_weekdays
+```
+But for sure we can't have a 4.92 steps to take. We have two options here, Either we can round those numbers up or down according to which side they are close to, or we can distribute for ex 1418 steps to friday NA's. I will take the first way. 
+
+```{r}
+average_weekdays$total_steps <- round(average_weekdays$total_steps)
+average_weekdays
+```
+So for Mondays and Thursdays we should fill NA'S with 4 and other days we should fill NA's with 5.
+Now let's fill NA's with those numbers:
+
+```{r}
+data_filled <- data
+
+for (i in 1:length(data_filled$steps)){
+  if ((is.na(data_filled$steps[i])) & (data_filled$weekday[i] == "Friday" | data_filled$weekday[i] == "Saturday" | data_filled$weekday[i] == "Sunday" | data_filled$weekday[i] == "Tuesday" | data_filled$weekday[i] == "Wednesday")){
+    data_filled$steps[i] <- 5  }
+  if ((is.na(data_filled$steps[i])) & (data_filled$weekday[i] == "Monday" | data_filled$weekday[i] == "Thursday")){
+    data_filled$steps[i] <- 4
+  }
+}
+```
+
+Now let's take a look our new data:
+```{r}
+head(data_filled)
+```
+
+Mondays were NA and now we filled NA's with 4 for Mondays. 
+After imputing NA's we should take a look our plots again.
+To calculate total steps taken in each day we will make groups again:
+
+```{r}
+steps_by_days <- aggregate(data_filled$steps, by=list(date = data_filled$date), FUN=sum, na.rm=TRUE)
+names(steps_by_days) <- c("Date","Total_Steps")
+```
+
+We created groups and let's plot them:
+
+```{r}
+g <- ggplot(steps_by_days,aes(Date,Total_Steps))
+g + geom_col(aes(colour=Date))  +scale_x_date(date_breaks = "5 days", date_labels = "%d.%m")
+```
+If you take a look of previous version of this plot you can see some bars are higher and most of the gaps are filled.
+
+Now let's compare weekdays and weekends steps taken. 
+To do so we will create two different groups: weekdays_steps and weekend_steps
+```{r}
+weekdays_steps <- aggregate(data_filled$steps[data_filled$weekday != "Saturday" & data_filled$weekday != "Sunday"], by = list(date = data_filled$weekday[data_filled$weekday != "Saturday" & data_filled$weekday != "Sunday"]), FUN = sum, na.rm=TRUE)
+names(weekdays_steps) <- c("Date","Total_Steps")
+
+weekend_steps <- aggregate(data_filled$steps[data_filled$weekday == "Saturday" | data_filled$weekday == "Sunday"], by = list(date = data_filled$weekday[data_filled$weekday == "Saturday" | data_filled$weekday == "Sunday"]), FUN = sum, na.rm=TRUE)
+names(weekend_steps) <- c("Date","Total_Steps")
+
+```
+
+Let's plot our groups in a panel plot:
+
+
+```{r}
+par(mfrow = c(1, 2))
+options(scipen=999)
+plot(weekdays_steps$Date, weekdays_steps$Total_Steps,xlab = "Weekdays",
+      ylab = "Total Steps", ylim=(c(0,max(weekdays_steps$Total_Steps)+5000)))
+plot(Total_Steps ~Date, data = weekend_steps,  xlab = "Weekend",
+      ylab = "Total Steps", ylim =(c(0,max(weekend_steps$Total_Steps)+5000)))
+```
 
 
 
-## What is the average daily activity pattern?
 
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
