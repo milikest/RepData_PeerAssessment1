@@ -1,8 +1,10 @@
 ---
 title: "R Notebook"
 output:
-  html_document:
-    df_print: paged
+  html_document: 
+    toc: yes
+    fig_caption: yes
+    number_sections: yes
   pdf_document: default
 ---
 In this document, personal movement data will be analysed in exploratory way.
