@@ -5,6 +5,7 @@ output:
     toc: yes
     fig_caption: yes
     number_sections: yes
+    self_contained: false
 ---
 In this document, personal movement data will be analysed in exploratory way.
 The data is about taken steps in 61 days.
