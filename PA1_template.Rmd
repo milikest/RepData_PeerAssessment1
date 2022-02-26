@@ -73,6 +73,7 @@ library(ggplot2)
 g <- ggplot(steps_by_days,aes(Date,Total_Steps))
 g + geom_col(aes(colour=Date))  +scale_x_date(date_breaks = "5 days", date_labels = "%d.%m")
 ```
+
 It looks like we have maximum steps number in date 23.11. And probably because of NA values we have zero bars.
 Let's find average value of steps taken in days in same way of grouping.
 ```{r}
@@ -88,6 +89,7 @@ names(mean_by_days) <- c("Date","Mean")
 g <- ggplot(mean_by_days,aes(Date, Mean))
 g + geom_col(aes(colour=Date))  +scale_x_date(date_breaks = "5 days", date_labels = "%d.%m")
 ```
+
 And the median of steps in each days:
 ```{r}
 tapply(data$steps, data$date, median)
@@ -146,6 +148,7 @@ g <- ggplot(steps_by_weekdays,aes(weekday, total_steps))
 g + geom_col(aes(colour=weekday)) 
 
 ```
+
 Let's find the mean of steps taken each weekday. Let's find how many days we have observed the taken steps
 
 ```{r}
@@ -209,6 +212,7 @@ We created groups and let's plot them:
 g <- ggplot(steps_by_days,aes(Date,Total_Steps))
 g + geom_col(aes(colour=Date))  +scale_x_date(date_breaks = "5 days", date_labels = "%d.%m")
 ```
+
 If you take a look of previous version of this plot you can see some bars are higher and most of the gaps are filled.
 
 Now let's compare weekdays and weekends steps taken. 
